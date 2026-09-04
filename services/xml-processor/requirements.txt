@@ -6,7 +6,7 @@ python-dateutil==2.8.2
 openpyxl==3.1.5
 pydantic==2.13.4
 psycopg2-binary==2.9.12
-sqlalchemy==2.0.40
+sqlalchemy==2.0.52
 httpx==0.28.1
 redis==5.3.1
 Levenshtein==0.27.4
