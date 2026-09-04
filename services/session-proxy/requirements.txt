@@ -5,7 +5,7 @@ uvicorn==0.22.0
 python-dotenv==1.2.2
 pydantic==2.13.4
 httpx==0.28.1
-patchright==1.62.1
+patchright==1.62.2
 arq==0.28.0
 redis==5.3.1
 pytest==8.3.4
