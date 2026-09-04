@@ -13,3 +13,7 @@ __pycache__/
 app.log
 *.log
 /downloads/
+
+# Backups locales que restaura scripts/restore-backups.sh al arrancar el stack (tenants y
+# documentos DIAN reales) — nunca deben subirse al repo, igual que .env.
+/backups/

@@ -463,6 +463,34 @@ services:
     networks:
       - abacus-network
 
+  # Restaura automaticamente, al arrancar, cualquier backup que alguien haya dejado en
+  # ./backups/ (ver scripts/restore-backups.sh para la convencion de archivos) — sin que
+  # nadie tenga que correr `docker cp`/`psql -f`/`pg_restore` a mano. Es la forma normal de
+  # dejar un clon nuevo con los tenants y documentos DIAN ya procesados, sin pasar por
+  # demo-tenant-init (que crea un tenant vacio con contrasena conocida, no datos reales).
+  #
+  # Sin `profiles`, a proposito: corre siempre con un `docker compose up` normal. No es un
+  # riesgo de seguridad como demo-tenant-init porque es pasivo — si ./backups/ no tiene
+  # ningun .dump (cualquier ambiente real, sin esa carpeta), no hace absolutamente nada.
+  #
+  # Idempotente: si `abacus_t_<slug>` ya existe (segunda vez que se levanta el stack, con
+  # datos nuevos generados desde la primera restauracion), esa base se deja intacta.
+  backup-restore:
+    image: pgvector/pgvector:pg16
+    container_name: abacus_backup_restore
+    env_file: .env
+    volumes:
+      - ./backups:/backups:ro
+      - ./scripts/restore-backups.sh:/restore-backups.sh:ro
+    entrypoint: ["/bin/sh", "/restore-backups.sh"]
+    depends_on:
+      database:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - abacus-network
+
 networks:
   abacus-network:
     driver: bridge

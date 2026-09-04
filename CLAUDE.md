@@ -23,6 +23,12 @@ pip install -r services/<servicio>/requirements.txt
 # proyecto usable justo después de clonarlo, sin restaurar ningún respaldo de base de datos
 # a mano. Ver DEMO_TENANT_* en .env.example para cambiar slug/credenciales.
 docker-compose --profile dev up demo-tenant-init
+
+# Arrancar con tenants y documentos DIAN reales (no el tenant demo vacío de arriba): dejar
+# backups/meta.sql y backups/tenants/<slug>.dump (ver README.md § "Arrancar con datos
+# reales") y correr el `docker-compose up -d --build` normal — el servicio backup-restore
+# (scripts/restore-backups.sh) detecta y restaura automáticamente, sin --profile ni pasos
+# manuales. Idempotente: no toca una base de tenant que ya exista.
 ```
 
 ## Arquitectura — Microservicios

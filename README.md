@@ -85,6 +85,30 @@ open http://localhost:8000/docs
 curl http://localhost:8000/health
 ```
 
+## Arrancar con datos reales (tenants + documentos DIAN ya procesados)
+
+Si alguien te pasó un backup (por ejemplo, para que veas exactamente los mismos datos que
+otro miembro del equipo, en vez de un tenant vacío), el flujo completo es:
+
+1. Pegar en `.env` las claves `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` e `INTERNAL_SECRET` que te
+   pasen manualmente (ver arriba — siguen siendo 100% manuales, no hay generación automática).
+2. Copiar el backup dentro del repo, respetando esta convención de nombres:
+   ```
+   backups/meta.sql              # fila(s) de abacus_meta.tenants
+   backups/tenants/<slug>.dump   # base completa del tenant (uno o varios)
+   ```
+   Ambos archivos te los pasa quien tenga el backup — `backups/` está en `.gitignore`, igual
+   que `.env`: nunca viaja por git.
+3. `docker compose up -d --build`.
+
+Nada más. Al arrancar, el servicio `backup-restore` (ver `scripts/restore-backups.sh`) detecta
+los archivos en `backups/` y restaura cada tenant automáticamente — sin `docker cp`, sin
+`psql -f`, sin `pg_restore` a mano. Es idempotente: si una base de tenant ya existe (porque
+ya se restauró antes, o porque ya generaste datos nuevos trabajando), la deja intacta.
+
+Si `backups/` está vacío o no existe, este paso simplemente no hace nada — un
+`docker compose up` normal, sin backup, arranca con la base vacía de siempre.
+
 ## Variables de entorno esenciales
 
 ```env
