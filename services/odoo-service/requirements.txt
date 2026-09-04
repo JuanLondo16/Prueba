@@ -1,7 +1,7 @@
 fastapi==0.141.1
 uvicorn[standard]==0.29.0
 sqlalchemy==2.0.30
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.12
 httpx==0.28.1
 python-dotenv==1.2.2
 pydantic==2.13.4
