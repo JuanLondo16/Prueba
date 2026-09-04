@@ -92,19 +92,16 @@ otro miembro del equipo, en vez de un tenant vacío), el flujo completo es:
 
 1. Pegar en `.env` las claves `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` e `INTERNAL_SECRET` que te
    pasen manualmente (ver arriba — siguen siendo 100% manuales, no hay generación automática).
-2. Copiar el backup dentro del repo, respetando esta convención de nombres:
-   ```
-   backups/meta.sql              # fila(s) de abacus_meta.tenants
-   backups/tenants/<slug>.dump   # base completa del tenant (uno o varios)
-   ```
-   Ambos archivos te los pasa quien tenga el backup — `backups/` está en `.gitignore`, igual
-   que `.env`: nunca viaja por git.
+2. Copiar el backup (**un solo archivo `.dump`**, el nombre no importa) a `backups/tenants/`.
+   `backups/` está en `.gitignore`, igual que `.env`: nunca viaja por git.
 3. `docker compose up -d --build`.
 
-Nada más. Al arrancar, el servicio `backup-restore` (ver `scripts/restore-backups.sh`) detecta
-los archivos en `backups/` y restaura cada tenant automáticamente — sin `docker cp`, sin
-`psql -f`, sin `pg_restore` a mano. Es idempotente: si una base de tenant ya existe (porque
-ya se restauró antes, o porque ya generaste datos nuevos trabajando), la deja intacta.
+Nada más — un solo archivo, tres pasos. Al arrancar, el servicio `backup-restore` (ver
+`scripts/restore-backups.sh`) lee el nombre de la base directamente del propio `.dump`
+(`pg_restore -l`), restaura esa base y registra el tenant en `abacus_meta` — sin `docker cp`,
+sin `psql -f`, sin `pg_restore` a mano, y sin que el archivo necesite un nombre específico. Es
+idempotente: si una base de tenant ya existe (porque ya se restauró antes, o porque ya
+generaste datos nuevos trabajando), la deja intacta.
 
 Si `backups/` está vacío o no existe, este paso simplemente no hace nada — un
 `docker compose up` normal, sin backup, arranca con la base vacía de siempre.
