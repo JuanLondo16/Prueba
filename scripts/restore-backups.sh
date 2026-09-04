@@ -1,18 +1,21 @@
 #!/bin/sh
 # Restaura, al arrancar el stack, cualquier backup que alguien haya dejado en
-# backups/tenants/ — un solo paso para el usuario: copiar el .dump ahi. Nada mas.
+# backups/tenants/ — un solo paso para el usuario: copiar el archivo ahi. Nada mas.
 #
-# No hace falta un segundo archivo ni un nombre de archivo especifico: cada .dump de
-# `pg_dump -Fc` trae el nombre de su base de datos en el propio encabezado del archivo
-# (`pg_restore -l` lo muestra como "; dbname: abacus_t_<slug>"), asi que el script lo lee de
-# ahi y de esa misma lectura arma tambien la fila que le falta en abacus_meta.tenants — sin
-# eso, el login responde "Tenant not found" aunque la base del tenant ya tenga todos los
-# datos, porque son dos cosas independientes (ver login.py en auth-service).
+# No hace falta un segundo archivo, un nombre especifico NI una extension especifica: quien
+# exporta un tenant con `pg_dump -Fc` no siempre lo llama ".dump" (herramientas como pgAdmin
+# suelen ofrecer ".sql" como nombre por defecto aunque el contenido sea formato CUSTOM), asi
+# que en vez de filtrar por extension se prueba cada archivo con `pg_restore -l`: si lo puede
+# leer, es un dump valido sin importar como se llame. De ahi mismo sale el nombre de su base
+# (";  dbname: abacus_t_<slug>"), y con esa misma lectura se arma la fila que le falta en
+# abacus_meta.tenants — sin eso, el login responde "Tenant not found" aunque la base del
+# tenant ya tenga todos los datos, porque son dos cosas independientes (ver login.py en
+# auth-service).
 #
 # Idempotente y no destructivo: si abacus_t_<slug> ya existe (porque ya se restauro antes, o
-# porque ya se genero trabajo nuevo), esa base se deja intacta. Si backups/tenants/ no tiene
-# ningun .dump, no hace nada: un `docker compose up` sin esa carpeta (cualquier ambiente
-# real) es una operacion vacia.
+# porque ya se genero trabajo nuevo), esa base se deja intacta. Si backups/tenants/ esta vacia
+# o no existe, no hace nada: un `docker compose up` sin esa carpeta (cualquier ambiente real)
+# es una operacion vacia.
 set -eu
 
 HOST="${DATABASE_HOST:-abacus_db}"
@@ -38,12 +41,13 @@ until psql -h "$HOST" -p "$PORT" -U "$DB_USER" -d abacus_meta -c 'select 1' >/de
   sleep 2
 done
 
-if [ ! -d "$TENANTS_DIR" ] || [ -z "$(find "$TENANTS_DIR" -maxdepth 1 -name '*.dump' -print -quit 2>/dev/null)" ]; then
-  log "No hay ningun .dump en $TENANTS_DIR — nada que restaurar."
+if [ ! -d "$TENANTS_DIR" ] || [ -z "$(find "$TENANTS_DIR" -maxdepth 1 -type f -print -quit 2>/dev/null)" ]; then
+  log "No hay ningun archivo en $TENANTS_DIR — nada que restaurar."
   exit 0
 fi
 
-for dump in "$TENANTS_DIR"/*.dump; do
+for dump in "$TENANTS_DIR"/*; do
+  [ -f "$dump" ] || continue
   db=$(pg_restore -l "$dump" 2>/dev/null | sed -n 's/^; *[Dd]bname: *//p' | head -1)
   if [ -z "$db" ]; then
     log "$(basename "$dump"): no se pudo leer el nombre de la base del propio archivo — se omite."
