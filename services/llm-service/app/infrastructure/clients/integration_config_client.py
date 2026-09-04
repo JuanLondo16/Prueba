@@ -103,12 +103,21 @@ class IntegrationConfigClient:
 
         Es autoritativo sobre el `TaxLevelCode` del receptor en el XML. Best-effort: si no está
         disponible, se devuelve None y la decisión cae al dato del XML.
+
+        Cacheado por empresa: es un dato de configuración de la empresa, no del documento, y
+        se pedía en cada sugerencia sin caché igual que el plan de cuentas antes de este fix.
+        Un `None` (falla o perfil inexistente) nunca se cachea, igual que el resto de este
+        cliente: ver `catalog_cache`.
         """
-        try:
-            return await self._get_json("/api/v1/integrations/fiscal-profile")
-        except Exception as exc:
-            logger.warning("No se pudo obtener el perfil fiscal del tenant: %s", exc)
-            return None
+
+        async def _cargar() -> Optional[dict]:
+            try:
+                return await self._get_json("/api/v1/integrations/fiscal-profile")
+            except Exception as exc:
+                logger.warning("No se pudo obtener el perfil fiscal del tenant: %s", exc)
+                return None
+
+        return await catalog_cache.get_or_load(self._tenant_slug, "fiscal_profile", _cargar)
 
     async def get_cost_centers(self) -> list[dict]:
         """Retorna los centros de costo configurados.
@@ -145,10 +154,23 @@ class IntegrationConfigClient:
 
         Best-effort, como el resto del cliente: sin criterios la sugerencia se apoya en las
         tablas oficiales y el perfil fiscal, que son las fuentes vinculantes.
+
+        Cacheado por empresa (TTL 120s, igual que el resto de este cliente): se seguían
+        pidiendo TODOS en cada sugerencia sin caché — el TTL no cambia que se pidan completos
+        ni que entren todos al prompt, solo evita repetir la llamada de red cuando nada
+        cambió desde la sugerencia anterior.
         """
-        try:
-            payload = await self._get_json("/api/v1/integrations/retention-criteria")
-            return payload.get("criterios", [])
-        except Exception as exc:
-            logger.warning("RF-08: no se pudieron obtener los criterios del contador: %s", exc)
-            return []
+
+        async def _cargar() -> list[dict]:
+            try:
+                payload = await self._get_json("/api/v1/integrations/retention-criteria")
+                return payload.get("criterios", [])
+            except Exception as exc:
+                logger.warning(
+                    "RF-08: no se pudieron obtener los criterios del contador: %s", exc
+                )
+                return []
+
+        return await catalog_cache.get_or_load(
+            self._tenant_slug, "retention_criteria", _cargar
+        )

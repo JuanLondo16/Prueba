@@ -113,5 +113,7 @@ def get_suggest_retentions_use_case(
         # búsqueda respondía 401 y el contexto del emisor quedaba vacío.
         rag_client=RagClient(base_url=rag_url, bearer_token=raw),
         # Tarifas oficiales de retención por concepto: las expone el xml-processor.
-        catalog_client=CatalogClient(base_url=xml_url, bearer_token=raw),
+        catalog_client=CatalogClient(
+            base_url=xml_url, bearer_token=raw, tenant_slug=token.tenant_slug
+        ),
     )

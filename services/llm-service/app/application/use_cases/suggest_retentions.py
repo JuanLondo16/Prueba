@@ -511,11 +511,15 @@ class SuggestRetentionsUseCase:
                 or ["El documento ya tiene todas las retenciones del catálogo."],
             }
 
-        # Las tres son independientes entre sí y ninguna depende del resultado de otra:
+        # Las cuatro son independientes entre sí y ninguna depende del resultado de otra:
         # `issuer` solo necesita el NIT que ya trae `document` (resuelto arriba), no el
-        # resultado de `profile` ni de `rates`. Se piden a la vez para no encadenar tres
+        # resultado de `profile`, `rates` ni `criterios`. `criterios` se pedía antes DENTRO
+        # de `_evidence()`, después del filtrado y de toda esta llamada — una espera
+        # secuencial completa que no protegía nada: los cortes por falta de candidatas
+        # (arriba) ya pasaron antes de llegar aquí, así que ese pedido siempre se hacía en el
+        # camino que sí sigue adelante. Se piden las cuatro a la vez para no encadenar cuatro
         # latencias antes de poder filtrar `available`.
-        issuer, profile, rates = await asyncio.gather(
+        issuer, profile, rates, criterios = await asyncio.gather(
             # El tipo de contribuyente vive en `issuers`, no en el documento: se consulta aparte.
             self._document_client.get_issuer(str(document.get("issuer_nit") or "")),
             # Perfil fiscal del COMPRADOR (tenant). Es autoritativo sobre el XML: si la
@@ -524,6 +528,9 @@ class SuggestRetentionsUseCase:
             # Tarifas oficiales por concepto: es lo que ancla la elección entre las once
             # tarifas de ReteFuente del catálogo, cuyos nombres solo indican el porcentaje.
             self._retention_rates(),
+            # Criterios del contador de esta empresa (RF-08, fuente 3). Se pasan a
+            # `_evidence()` ya resueltos en vez de que los pida ella misma.
+            self._integration_config_client.get_retention_criteria(),
         )
         # Filas `reteica` de las candidatas YA FRESCAS (antes de excluir tipos registrados):
         # cada una es una tarifa de `integration_retentions` con su propio municipio, concepto
@@ -546,7 +553,7 @@ class SuggestRetentionsUseCase:
         # un decreto se resuelven cargando el Excel, sin desplegar.
         uvt = _uvt_efectiva(rates, _anio_documento(document))
         ica_rates = self._con_base_en_pesos(ica_rates, uvt)
-        evidence = await self._evidence(document, available, rates, ica_rates)
+        evidence = await self._evidence(document, available, rates, ica_rates, criterios)
 
         ai_response = await self._ai.complete(
             prompt=self._build_prompt(
@@ -924,6 +931,7 @@ class SuggestRetentionsUseCase:
         candidates: list[dict],
         rates: list[dict],
         ica_rates: list[dict],
+        criterios: list[dict],
     ) -> EvidenceBundle:
         """Recupera la evidencia de las cuatro fuentes, cada una con su procedencia.
 
@@ -932,6 +940,11 @@ class SuggestRetentionsUseCase:
         recorte el precedente no llegaba a informar nada: cabía media línea de un caso, casi
         siempre la cabecera, nunca las retenciones. El sistema indexaba historial y decidía
         como si no lo tuviera.
+
+        `criterios` llega ya resuelto (se pide junto con `issuer`/`profile`/`rates` en
+        `execute`, no aquí): son datos del tenant, no una constante de este servicio, pero
+        pedirlos en este punto los encadenaba después del filtrado Y de la búsqueda de
+        precedentes de abajo, sin necesidad — no dependen de ninguno de los dos.
         """
         # La CLASE normalizada del catálogo, no el texto libre de `type`. Los criterios del
         # contador y el corpus conceptual se indexan por clase («reteica»), mientras que
@@ -939,9 +952,6 @@ class SuggestRetentionsUseCase:
         # el texto crudo, una variante de escritura dejaba fuera del prompt los criterios de
         # ReteICA sin que nada lo señalara — el modelo decidía sin las reglas del contador.
         tipos = {str(c.get("clase") or "").strip().lower() for c in candidates} - {""}
-        # Los criterios son datos del tenant, no una constante de este servicio: cada
-        # contador tiene los suyos y los cambia sin que nadie despliegue nada.
-        criterios = await self._integration_config_client.get_retention_criteria()
         return await self._evidence_retriever.build(
             document=document,
             tipos_candidatos=tipos,
