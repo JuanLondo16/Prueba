@@ -1,0 +1,6 @@
+# Los scripts de shell se montan tal cual dentro de contenedores Linux (ver
+# docker-compose.yml: backup-restore). Un checkout en Windows con core.autocrlf=true les
+# mete CRLF, y `/bin/sh` se cae con esos archivos sin avisar por que — se ve como que el
+# script "no hace nada", cuando en realidad nunca llego a ejecutarse. Forzar LF aqui evita
+# el problema sin depender de la configuracion de git de quien clona.
+*.sh text eol=lf
