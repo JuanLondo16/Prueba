@@ -55,7 +55,7 @@ jobs:
         with:
           name: coverage-${{ matrix.service }}
           path: services/${{ matrix.service }}/coverage.xml
-      - uses: dorny/test-reporter@v1
+      - uses: dorny/test-reporter@v3
         if: always()
         with:
           name: ${{ matrix.service }} tests
