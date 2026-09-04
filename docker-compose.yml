@@ -484,7 +484,10 @@ services:
     volumes:
       - ./backups:/backups:ro
       - ./scripts/restore-backups.sh:/restore-backups.sh:ro
-    entrypoint: ["/bin/sh", "/restore-backups.sh"]
+    # El script se monta desde el checkout del host: en Windows sin core.autocrlf=input
+    # llega con CRLF, y /bin/sh se cae con eso sin avisar por que. En vez de depender de la
+    # configuracion de git de quien clona, se le quita el \r aca mismo antes de ejecutarlo.
+    entrypoint: ["/bin/sh", "-c", "sed 's/\\r$//' /restore-backups.sh | /bin/sh"]
     depends_on:
       database:
         condition: service_healthy
