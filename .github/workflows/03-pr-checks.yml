@@ -20,7 +20,7 @@ jobs:
     name: PR size warning
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Avisar si el PR cambia más de 400 líneas
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: []
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
